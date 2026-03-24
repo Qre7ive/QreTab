@@ -1,4 +1,4 @@
-# QreTab v0.3
+# QreTab v0.1
 
 QreTab is a personal Chrome New Tab extension focused on fast daily access.
 
