@@ -773,8 +773,7 @@ function renderActiveFolderPanel() {
   for (const item of allBookmarks) {
     const anchor = createTag("a", "bookmark-pill");
     anchor.href = item.url;
-    anchor.target = "_blank";
-    anchor.rel = "noreferrer";
+    anchor.target = "_self";
 
     const title = createTag("span", "bookmark-title", item.title || shortUrl(item.url));
     const host = createTag("span", "bookmark-host", shortUrl(item.url));
