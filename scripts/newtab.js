@@ -137,6 +137,7 @@ function createDefaultState() {
         ],
       },
     ],
+    secretVaultBookmarks: [],
   };
 }
 
@@ -408,6 +409,10 @@ async function deleteFolderById(folderId) {
   const confirmed = confirm(t("confirmDeleteGroup", { name: folder.title }));
   if (!confirmed) return;
 
+  if (isSecretFolder(folder)) {
+    state.secretVaultBookmarks = [];
+  }
+
   state.folders = state.folders.filter((item) => item.id !== folderId);
   if (state.activeFolderId === folderId) {
     state.activeFolderId = null;
@@ -507,6 +512,9 @@ function normalizeLoadedState(raw) {
     searchEngine: Object.hasOwn(SEARCH_ENGINES, raw.searchEngine) ? raw.searchEngine : fallback.searchEngine,
     language: ["zh", "en"].includes(raw.language) ? raw.language : fallback.language,
     activeFolderId: typeof raw.activeFolderId === "string" ? raw.activeFolderId : null,
+    secretVaultBookmarks: Array.isArray(raw.secretVaultBookmarks)
+      ? raw.secretVaultBookmarks.map(normalizeBookmark).filter(Boolean)
+      : fallback.secretVaultBookmarks,
     folders: folders.length ? folders : fallback.folders,
   };
 }
@@ -547,14 +555,27 @@ function isSecretFolder(folder) {
   return Boolean(folder && folder.isSecret);
 }
 
+function getSecretFolder() {
+  return state.folders.find((folder) => isSecretFolder(folder)) ?? null;
+}
+
 function revealSecretFolder() {
-  let secretFolder = state.folders.find((folder) => isSecretFolder(folder));
+  let secretFolder = getSecretFolder();
 
   if (!secretFolder) {
+    const persistedSecretBookmarks = (Array.isArray(state.secretVaultBookmarks)
+      ? state.secretVaultBookmarks
+      : []
+    ).map((bookmark) => ({
+      id: bookmark.id,
+      title: bookmark.title,
+      url: bookmark.url,
+    }));
+
     secretFolder = {
       id: createId(),
       title: SECRET_GROUP_NAME,
-      bookmarks: [],
+      bookmarks: persistedSecretBookmarks,
       isSecret: true,
     };
     state.folders.unshift(secretFolder);
@@ -566,6 +587,18 @@ function revealSecretFolder() {
 
 function clearSecretFolders() {
   if (!Array.isArray(state.folders)) return false;
+
+  const secretFolder = getSecretFolder();
+  if (secretFolder) {
+    state.secretVaultBookmarks = (Array.isArray(secretFolder.bookmarks)
+      ? secretFolder.bookmarks
+      : []
+    ).map((bookmark) => ({
+      id: bookmark.id,
+      title: bookmark.title,
+      url: bookmark.url,
+    }));
+  }
 
   const previousLength = state.folders.length;
   state.folders = state.folders.filter((folder) => !isSecretFolder(folder));
@@ -594,6 +627,22 @@ function buildStorageSnapshot() {
       })),
     }));
 
+  const secretFolder = getSecretFolder();
+  const secretVaultBookmarks = (
+    secretFolder
+      ? secretFolder.bookmarks
+      : Array.isArray(state.secretVaultBookmarks)
+        ? state.secretVaultBookmarks
+        : []
+  )
+    .map(normalizeBookmark)
+    .filter(Boolean)
+    .map((bookmark) => ({
+      id: bookmark.id,
+      title: bookmark.title,
+      url: bookmark.url,
+    }));
+
   const activeFolderId = folders.some((folder) => folder.id === state.activeFolderId)
     ? state.activeFolderId
     : null;
@@ -604,6 +653,7 @@ function buildStorageSnapshot() {
     language: state.language,
     activeFolderId,
     folders,
+    secretVaultBookmarks,
   };
 }
 
@@ -768,6 +818,7 @@ function renderActiveFolderPanel() {
   updateRefreshButtonVisibility();
 
   const allBookmarks = activeFolder.bookmarks;
+  const isSecretActiveFolder = isSecretFolder(activeFolder);
   refs.bookmarkRow.innerHTML = "";
 
   for (const item of allBookmarks) {
@@ -776,8 +827,12 @@ function renderActiveFolderPanel() {
     anchor.target = "_self";
 
     const title = createTag("span", "bookmark-title", item.title || shortUrl(item.url));
-    const host = createTag("span", "bookmark-host", shortUrl(item.url));
-    anchor.append(title, host);
+    if (isSecretActiveFolder) {
+      anchor.append(title);
+    } else {
+      const host = createTag("span", "bookmark-host", shortUrl(item.url));
+      anchor.append(title, host);
+    }
     anchor.draggable = true;
 
     anchor.addEventListener("dragstart", (event) => {

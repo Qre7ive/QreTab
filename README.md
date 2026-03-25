@@ -14,7 +14,6 @@ QreTab is a personal Chrome New Tab extension focused on fast daily access.
 - Drag-and-drop sorting for groups and links
 - Bilingual UI (Chinese / English)
 - Theme mode and default search engine persistence via `chrome.storage.local`
-- Hidden easter-egg group trigger (`././` or `。/。/`) with temporary visibility
 
 ## Project Structure
 
